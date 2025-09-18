@@ -4,12 +4,15 @@ import net from "node:net";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
+import tls from "tls";
 
 const HOST = "127.0.0.1";
 const PORT = 2525;
 const SPOOL_DIR = "/tmp/smtp-mvp";
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_DOMAINS = new Set(["local.test", "example.com"]); // accept RCPT TO only for these domains
+const YOUR_CERT = fs.readFileSync("cert.pem");
+const YOUR_KEY = fs.readFileSync("key.pem");
 
 fs.mkdirSync(SPOOL_DIR, { recursive: true });
 
@@ -40,6 +43,7 @@ const server = net.createServer((socket) => {
     dataLines: [],
     bytes: 0
   };
+  let isEncrypted = false;
 
   writeLine(socket, "220 smtp-local.test SimpleSMTP ready");
 
@@ -166,10 +170,27 @@ const server = net.createServer((socket) => {
 
     if (up === "QUIT") { writeLine(socket, "221 2.0.0 Bye"); socket.end(); return; }
 
-    if (up === "STARTTLS") {
+    if (up === "STARTTLS" && !isEncrypted) {
       // educational: we are not implementing TLS here
-      writeLine(socket, "454 4.7.0 TLS not available (MVP)");
-      return;
+      socket.write("220 Ready to start TLS\r\n");
+
+      // Upgrade to TLS
+      const secureSocket = new tls.TLSSocket(socket, {
+        isServer: true,
+        cert: YOUR_CERT,   // load server cert
+        key: YOUR_KEY,     // load private key
+      });
+
+      // Replace socket with secureSocket
+      secureSocket.on("data", (tlsData) => {
+        console.log("🔐 Encrypted:", tlsData.toString());
+        if (tlsData.toString().startsWith("EHLO")) {
+          secureSocket.write("250-SimpleNodeSMTP (encrypted)\r\n");
+          secureSocket.write("250 OK\r\n");
+        }
+      });
+
+      isEncrypted = true;
     }
 
     writeLine(socket, "502 5.5.2 Command not implemented");
