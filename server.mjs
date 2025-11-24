@@ -7,7 +7,7 @@ import path from "node:path";
 import tls from "tls";
 
 const HOST = "127.0.0.1";
-const PORT = 2525;
+const PORT = 25;
 const SPOOL_DIR = "/tmp/smtp-mvp";
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_DOMAINS = new Set(["local.test", "example.com"]); // accept RCPT TO only for these domains

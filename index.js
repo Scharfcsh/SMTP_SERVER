@@ -8,8 +8,17 @@ const spoolDir = "/tmp/mails";
 fs.mkdirSync(spoolDir, { recursive: true });
 
 const server = new SMTPServer({
-  // No login required (good for inbound mail)
   authOptional: true,
+  allowInsecureAuth: true,
+  onConnect(session, callback) {
+    console.log(`🔌 Connection from ${session.remoteAddress}`);
+    callback(); // accept the connection
+  }, 
+  // No login required (good for inbound mail)
+  onMailFrom(address, session, callback) {
+    console.log(`📧 MAIL FROM: ${address.address}`);
+    callback(); // accept
+  },
 
   // Accept any recipient address at your domain
   onRcptTo(address, session, callback) {
